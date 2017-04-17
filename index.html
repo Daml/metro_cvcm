@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>OSRM @ CVCM</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+        <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+        <style>
+            body { padding: 0; margin: 0; }
+            html, body, #map { height: 100vh; width: 100vw; }
+        </style>
+    </head>
+    <body>
+        <div id='map'></div>
+        <script>
+(function () {
+var redIcon = L.icon({
+        iconUrl: "http://map.project-osrm.org/images/marker-end-icon-2x.png",
+        iconRetinaUrl: "http://map.project-osrm.org/images/marker-end-icon-2x.png",
+        iconSize: [20, 56],
+        popupAnchor: [0, -30],
+    }),
+    greenIcon = L.icon({
+        iconUrl: "http://map.project-osrm.org/images/marker-start-icon-2x.png",
+        iconRetinaUrl: "http://map.project-osrm.org/images/marker-start-icon-2x.png",
+        iconSize: [20, 56],
+        popupAnchor: [0, -30],
+    }),
+    bounds = [[45.166970759796875,5.674009323120117],[45.2092545766686,5.783443450927735]],
+    map = L.map('map', {
+        center: [45.179, 5.716],
+        zoom: 12,
+    }).fitBounds(bounds),
+    routes = L.layerGroup().addTo(map);
+    loadRoutes = function () {
+        var o = origin.getLatLng(),
+            d = destination.getLatLng(),
+            server = document.location.href.match(/localhost/) ? "http://192.168.99.100:5888" : "http://51.254.71.26:5888";
+
+        var uri = L.Util.template(
+            "{server}/route/v1/driving/{olng},{olat};{dlng},{dlat}{options}",
+            {
+                server: server,
+                options: "?alternatives=true&overview=full&geometries=geojson",
+                olat: o.lat,
+                olng: o.lng,
+                dlat: d.lat,
+                dlng: d.lng,
+            }
+        );
+
+        $.getJSON(uri, function(data) {
+            if (data.code !== "Ok") {
+                throw new Error("(OSRM) Error");
+            }
+            routes.clearLayers();
+            for (var i = 0; i < data.routes.length; i++) {
+                L.geoJson(data.routes[i].geometry, {
+                    color: "blue",
+                    stroke: "true",
+                    weight: "5",
+                    dashArray: (i > 0) ? "5, 15" : null,
+                }).bindPopup("<b>OSRM #" + i + "</b><br /><i>" +
+                    data.waypoints[0].name + " > " + data.waypoints[1].name +
+                    "</i><br /><br />Distance : " +
+                    data.routes[i].distance + "<br />Durée : " +
+                    data.routes[i].duration
+                ).addTo(routes);
+            }
+        });
+    },
+    origin = L.marker([45.18557587934464, 5.732588768005371], {
+            draggable: true,
+            icon: greenIcon,
+            title: "Origine"
+        })
+        .on('dragend', loadRoutes)
+        .addTo(map),
+    destination = L.marker([45.19230550239402, 5.7206904888153085], {
+            draggable: true,
+            icon: redIcon,
+            title: "Destination"
+        })
+        .on('dragend', loadRoutes)
+        .addTo(map);
+
+L.tileLayer('//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: "Map &amp; Data &copy; <a href=http://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>. Routes by <a href=http://project-osrm.org/>OSRM</a>",
+}).addTo(map);
+
+L.rectangle(bounds, {
+    color: "#ff7800",
+    weight: 3,
+    fill: false,
+    interactive: false
+}).addTo(map);
+
+loadRoutes();
+}());
+        </script>
+    </body>
+</html>
